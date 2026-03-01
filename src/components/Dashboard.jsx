@@ -109,9 +109,28 @@ const Dashboard = ({ refreshTrigger }) => {
 
     const handleCloudUpload = async () => {
         try {
+            // Check if authenticated first
+            if (!googleClientId) {
+                setShowSettings(true);
+                return;
+            }
+
             setSyncStatus('syncing');
             const data = exportDatabase();
-            await GoogleDrive.syncToDrive(data);
+
+            try {
+                await GoogleDrive.syncToDrive(data);
+            } catch (err) {
+                if (err.message === 'Not authenticated' || err.message === 'AUTH_EXPIRED') {
+                    // Trigger authentication and wait for successful auth to retry
+                    setSyncStatus('authenticating');
+                    GoogleDrive.authenticate();
+                    // We don't wait for the callback here since it's handled by the initGoogleDrive callback
+                    return;
+                }
+                throw err;
+            }
+
             const now = new Date().toLocaleString();
             setLastSync(now);
             localStorage.setItem('cafe_raon_last_sync', now);
@@ -833,8 +852,8 @@ const Dashboard = ({ refreshTrigger }) => {
                             )}
                             <div className="flex" style={{ gap: '10px', marginTop: '10px' }}>
                                 <button className="primary flex-1" onClick={() => { setShowSettings(false); handleCloudSync(); }}>연동 시작하기</button>
-                                {syncStatus === 'success' && (
-                                    <button className="secondary flex-1" style={{ backgroundColor: '#f0f4f8', color: '#1a73e8', border: '1px solid #1a73e8' }} onClick={handleCloudUpload}>제 지금 동기화</button>
+                                {googleClientId && (
+                                    <button className="secondary flex-1" style={{ backgroundColor: '#f0f4f8', color: '#1a73e8', border: '1px solid #1a73e8' }} onClick={handleCloudUpload}>지금 동기화</button>
                                 )}
                                 <button className="secondary" onClick={() => setShowSettings(false)}>닫기</button>
                             </div>
