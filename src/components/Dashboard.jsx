@@ -63,6 +63,18 @@ const Dashboard = ({ refreshTrigger }) => {
         }
     }, [googleClientId]);
 
+    // 5-minute auto-sync mechanism
+    useEffect(() => {
+        let interval;
+        if (syncStatus === 'success' && googleClientId) {
+            interval = setInterval(() => {
+                console.log('Auto-syncing to Google Drive...');
+                handleCloudUpload();
+            }, 5 * 60 * 1000); // 5 minutes
+        }
+        return () => clearInterval(interval);
+    }, [syncStatus, googleClientId]);
+
     const handleCloudSync = async () => {
         if (!googleClientId) {
             setShowSettings(true);
@@ -821,6 +833,9 @@ const Dashboard = ({ refreshTrigger }) => {
                             )}
                             <div className="flex" style={{ gap: '10px', marginTop: '10px' }}>
                                 <button className="primary flex-1" onClick={() => { setShowSettings(false); handleCloudSync(); }}>연동 시작하기</button>
+                                {syncStatus === 'success' && (
+                                    <button className="secondary flex-1" style={{ backgroundColor: '#f0f4f8', color: '#1a73e8', border: '1px solid #1a73e8' }} onClick={handleCloudUpload}>제 지금 동기화</button>
+                                )}
                                 <button className="secondary" onClick={() => setShowSettings(false)}>닫기</button>
                             </div>
                         </div>
