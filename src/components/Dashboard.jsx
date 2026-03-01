@@ -465,6 +465,17 @@ const Dashboard = ({ refreshTrigger }) => {
                                         <Cloud size={16} style={{ marginRight: 5 }} />}
                             {syncStatus === 'success' ? '동기화됨' : syncStatus === 'error' ? '연동 오류' : '클라우드 연동'}
                         </button>
+                        {googleClientId && (
+                            <button
+                                className="secondary flex"
+                                onClick={handleCloudUpload}
+                                disabled={syncStatus === 'syncing'}
+                                style={{ alignItems: 'center', backgroundColor: '#fff3e0', borderColor: '#ffe0b2', color: '#e65100' }}
+                                title="현재 내역을 즉시 구글 드라이브에 저장"
+                            >
+                                <RefreshCw size={16} className={syncStatus === 'syncing' ? 'spin' : ''} style={{ marginRight: 5 }} /> 지금 동기화
+                            </button>
+                        )}
                         <button className="secondary" onClick={() => setShowSettings(true)} style={{ padding: '8px' }} title="연동 설정">
                             <Settings size={18} />
                         </button>
