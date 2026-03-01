@@ -36,6 +36,7 @@ const Dashboard = ({ refreshTrigger }) => {
     const [syncStatus, setSyncStatus] = useState('idle');
     const [lastSync, setLastSync] = useState(localStorage.getItem('cafe_raon_last_sync') || null);
     const [categoryBreakdown, setCategoryBreakdown] = useState({ sales: [], expenses: [] });
+    const [pendingAction, setPendingAction] = useState(null); // 'upload' or 'download'
 
     const dateInputRef = React.useRef(null);
 
@@ -51,17 +52,37 @@ const Dashboard = ({ refreshTrigger }) => {
     }, [period, date, refreshTrigger]);
 
     useEffect(() => {
-        if (googleClientId && window.google) {
-            GoogleDrive.initGoogleDrive(googleClientId, (status, detail) => {
-                if (status === 'authenticated') {
-                    setSyncStatus('syncing');
-                    handleCloudDownload();
-                } else if (status === 'error') {
-                    setSyncStatus('error');
+        const init = () => {
+            if (googleClientId && window.google) {
+                GoogleDrive.initGoogleDrive(googleClientId, (status, detail) => {
+                    if (status === 'authenticated') {
+                        if (pendingAction === 'upload') {
+                            handleCloudUpload();
+                        } else {
+                            setSyncStatus('syncing');
+                            handleCloudDownload();
+                        }
+                        setPendingAction(null);
+                    } else if (status === 'error') {
+                        setSyncStatus('error');
+                        alert('구글 연동 중 오류가 발생했습니다: ' + detail);
+                    }
+                });
+            }
+        };
+
+        if (window.google) {
+            init();
+        } else {
+            const checkGoogle = setInterval(() => {
+                if (window.google) {
+                    init();
+                    clearInterval(checkGoogle);
                 }
-            });
+            }, 500);
+            return () => clearInterval(checkGoogle);
         }
-    }, [googleClientId]);
+    }, [googleClientId, pendingAction]);
 
     // 5-minute auto-sync mechanism
     useEffect(() => {
@@ -122,10 +143,9 @@ const Dashboard = ({ refreshTrigger }) => {
                 await GoogleDrive.syncToDrive(data);
             } catch (err) {
                 if (err.message === 'Not authenticated' || err.message === 'AUTH_EXPIRED') {
-                    // Trigger authentication and wait for successful auth to retry
                     setSyncStatus('authenticating');
+                    setPendingAction('upload');
                     GoogleDrive.authenticate();
-                    // We don't wait for the callback here since it's handled by the initGoogleDrive callback
                     return;
                 }
                 throw err;
@@ -136,7 +156,9 @@ const Dashboard = ({ refreshTrigger }) => {
             localStorage.setItem('cafe_raon_last_sync', now);
             setSyncStatus('success');
         } catch (err) {
+            console.error('Cloud upload error:', err);
             setSyncStatus('error');
+            alert('동기화에 실패했습니다: ' + err.message);
         }
     };
 
@@ -849,6 +871,14 @@ const Dashboard = ({ refreshTrigger }) => {
                                 <p style={{ fontSize: '0.85rem', color: '#666', margin: 0 }}>
                                     최종 동기화 시간: {lastSync}
                                 </p>
+                            )}
+                            {syncStatus !== 'idle' && (
+                                <div className="flex" style={{ gap: '10px', alignItems: 'center', fontSize: '0.9rem' }}>
+                                    {syncStatus === 'syncing' && <><RefreshCw size={16} className="spin" /> <span>동기화 중...</span></>}
+                                    {syncStatus === 'authenticating' && <><Settings size={16} className="spin" /> <span>인증 확인 중...</span></>}
+                                    {syncStatus === 'success' && <><CheckCircle size={16} color="green" /> <span style={{ color: 'green' }}>동기화 완료</span></>}
+                                    {syncStatus === 'error' && <><AlertCircle size={16} color="red" /> <span style={{ color: 'red' }}>동기화 실패</span></>}
+                                </div>
                             )}
                             <div className="flex" style={{ gap: '10px', marginTop: '10px' }}>
                                 <button className="primary flex-1" onClick={() => { setShowSettings(false); handleCloudSync(); }}>연동 시작하기</button>
